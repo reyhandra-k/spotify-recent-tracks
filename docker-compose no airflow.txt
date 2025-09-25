@@ -1,0 +1,26 @@
+services:
+  pgdatabase:
+    image: postgres:14.18
+    environment:
+      - PGUSER=postgres
+      - POSTGRES_PASSWORD=root
+      - POSTGRES_DB=spotify_stats
+    volumes:
+      - "postgres_db_volume_local:/var/lib/postgresql/data:rw"
+    ports:
+      - "5432:5432"
+  pgadmin:
+    image: dpage/pgadmin4:9.6
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
+      - PGADMIN_DEFAULT_PASSWORD=root
+    volumes:
+      - "pgadmin_volume_local:/var/lib/pgadmin"
+    ports:
+    - "5050:80"
+volumes:
+  postgres_db_volume_local:
+    external: true
+  pgadmin_volume_local:
+    external: true
+      
