@@ -1,72 +1,56 @@
-from urllib.parse import urlencode, urlparse, parse_qs
-from dotenv import load_dotenv, set_key
 import os
-import requests
-import base64
-import json
-from pathlib import Path
+import time
+import datetime
 import pandas as pd
-import hashlib
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
-
-# Refresh access token
-def refresh_token():
-    load_dotenv()
-    env_file_path = Path(".env")
-
-    client_id =  os.environ.get("client_id")
-    client_secret =  os.environ.get("client_secret")
-
-    auth_str = f"{client_id}:{client_secret}"
-    b64_auth_str = base64.b64encode(auth_str.encode()).decode()
-
-    headers = {
-        "Content-Type": 'application/x-www-form-urlencoded',
-        "Authorization": f"Basic {b64_auth_str}"
-    }
-
-    data = {
-        "grant_type": 'refresh_token',
-        "refresh_token": os.environ.get("refresh_token")
-    }
-
-    response = requests.post("https://accounts.spotify.com/api/token", headers=headers, data=data)
-
-    if response.status_code == 200:
-        new_token_data = response.json()
-        print(json.dumps(new_token_data, indent=3))    
-        set_key(dotenv_path=env_file_path, key_to_set="access_token", value_to_set=new_token_data["access_token"])    
-        os.environ["access_token"] = new_token_data["access_token"]
-        if "refresh_token" in new_token_data:
-            set_key(dotenv_path=env_file_path, key_to_set="refresh_token", value_to_set=new_token_data["refresh_token"])    
-            os.environ["refresh_token"] = new_token_data["refresh_token"]
-    else:
-        print("Error: ", response.status_code, response.text)
+import spotipy
+from spotipy.oauth2 import SpotifyOAuth
 
 
-#get last 50 tracks
 load_dotenv()
 
-access_token = os.environ.get("access_token")
+client_id =  os.environ.get("client_id")
+client_secret =  os.environ.get("client_secret")
+redirect_uri = 'http://127.0.0.1:3000/callback'
+scopes = [
+    "user-read-private",
+    "user-read-email",
+    "user-top-read",
+    "user-read-recently-played"
+]
 
-headers = {
-    'Authorization': f"Bearer {access_token}"
-}
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
+    client_id = client_id,
+    client_secret = client_secret,
+    redirect_uri = redirect_uri,
+    scope = scopes,
+    ),
+    requests_timeout=15
+)
 
-params = {
-    "limit": 50
-}
+engine = create_engine('postgresql://postgres:root@localhost:5432/spotify_stats')
+engine.connect()
 
-response = requests.get("https://api.spotify.com/v1/me/player/recently-played",headers=headers,params=params)
+last_fetch = pd.read_sql("SELECT MAX(played_at) AS last_fetch FROM recent_tracks", engine)['last_fetch'][0]
+if pd.isnull(last_fetch):
+    last_fetch = datetime.datetime.utcnow() - datetime.timedelta(hours=24)
 
-if response.status_code == 200:
-    raw_recent_tracks = response.json()
-    print(json.dumps(raw_recent_tracks, indent=4))
-else:
-    print("Error: ", response.status_code, response.text)
+last_fetch = int(last_fetch.timestamp() * 1000)
 
+def fetch_recently_played(sp, after_timestamp, retries=3, delay=5):
+    for i in range(retries):
+        try:
+            return sp.current_user_recently_played() #(after=after_timestamp)
+        except Exception as e:
+            print(f"Attempt {i+1} failed: {e}")
+            if i < retries - 1:
+                time.sleep(delay)
+            else:
+                raise
 
-#convert api response to pandas dataframe
+results = fetch_recently_played(sp, last_fetch)
+
 recent_track_df = pd.DataFrame([
     {
         "played_at": item["played_at"],
@@ -80,21 +64,17 @@ recent_track_df = pd.DataFrame([
         "track_id": item["track"]["id"],
         "popularity": item["track"]["popularity"]
     }
-    for item in raw_recent_tracks["items"]
+    for item in results["items"]
 ])
-
-def gen_md5_id(id):
-    return hashlib.md5(str(id).encode()).hexdigest()
 
 recent_track_df.album_release_date = pd.to_datetime(recent_track_df.album_release_date, format='ISO8601', utc=True)
 recent_track_df.played_at = pd.to_datetime(recent_track_df.played_at, format='ISO8601', utc=True)
 recent_track_df.played_at = recent_track_df['played_at'].dt.tz_convert("Asia/Jakarta")
-recent_track_df['str_id'] = recent_track_df['played_at'].dt.strftime('%Y-%m-%dT%H:%M:%S.%fZ') + recent_track_df['track_id']
-recent_track_df['md5_hash'] = recent_track_df['str_id'].apply(gen_md5_id)
+# recent_track_df = recent_track_df[recent_track_df['played_at'] > last_fetch]
+recent_track_df.drop_duplicates(subset=["track_id", "played_at"], inplace=True)
 
+print(recent_track_df)
 
-#load dataframe to postgres
-engine = create_engine('postgresql://postgres:root@localhost:5432/spotify_stats')
-recent_track_df.to_sql(name='recent_tracks', con=engine, if_exists='append')
+# recent_track_df.to_sql(name='recent_tracks', con=engine, if_exists='append')
 
 
