@@ -154,7 +154,7 @@ def main():
         artists_df, albums_df, tracks_df, plays_df = transform_tracks(items, pd.to_datetime(after_ts, unit='ms', utc=True))
         load_to_db(tables, engine, artists_df, albums_df, tracks_df, plays_df)
 
-        log_etl_event(engine, "SUCCESS", "ALL", len(plays_df), f"ETL completed with {len(plays_df)} new tracks.")
+        log_etl_event(engine, "SUCCESS", "ALL", 0, "ETL process successfully completed.")
         logging.info("=== Spotify ETL process completed successfully ===")
 
     except Exception as e:
