@@ -39,7 +39,7 @@ def reflect_tables(engine, table_names):
 def bulk_upsert_dataframe(df, table, engine, conflict_cols):
     if df.empty:
         print(f"[SKIP] No new rows for {table.name}")
-        log_etl_event(engine, table.name, "SKIP", 0, "No new rows")
+        log_etl_event(engine, table.name, "SKIP", 0, "No new data.")
         return 0
 
     records = df.to_dict(orient="records")
@@ -51,19 +51,23 @@ def bulk_upsert_dataframe(df, table, engine, conflict_cols):
             result = conn.execute(upsert_stmt)
         inserted_count = result.rowcount if result.rowcount is not None else len(records)
         print(f"[INSERTED] {inserted_count} rows into {table.name}")
-        log_etl_event(engine, table.name, "SUCCESS", inserted_count, "Insert completed")
+        if inserted_count > 0:
+            log_etl_event(engine, table.name, "SUCCESS", inserted_count, "Insert completed.")
+        else:
+            log_etl_event(engine, table.name, "SUCCESS", inserted_count, "No new data.")
+
         return inserted_count
     except Exception as e:
         print(f"[ERROR] Failed to insert into {table.name}: {e}")
         log_etl_event(engine, table.name, "FAILURE", 0, str(e))
         return 0
 
-
 def bulk_upsert_dataframe_update(df, table, engine, conflict_cols, update_cols):
     if df.empty:
         print(f"[SKIP] No new or updated rows for {table.name}")
-        log_etl_event(engine, table.name, "SKIP", 0, "No new or updated rows")
-        return
+        log_etl_event(engine, table.name, "SKIP", 0, "No new or updated data.")
+        return 0
+
     records = df.to_dict(orient="records")
     insert_stmt = pg_insert(table).values(records)
     update_dict = {col: insert_stmt.excluded[col] for col in update_cols}
@@ -74,18 +78,15 @@ def bulk_upsert_dataframe_update(df, table, engine, conflict_cols, update_cols):
 
     try:
         with engine.begin() as conn:
-            # Count rows before
-            before_count = conn.execute(table.count()).scalar()
-            conn.execute(upsert_stmt)
-            after_count = conn.execute(table.count()).scalar()
-            affected_count = after_count - before_count
-
+            result = conn.execute(upsert_stmt)
+        affected_count = result.rowcount if result.rowcount is not None else len(records)
         print(f"[UPSERTED] {affected_count} rows into {table.name}")
         if affected_count > 0:
-            log_etl_event(engine, table.name, "SUCCESS", affected_count, "Upsert/update completed")
+            log_etl_event(engine, table.name, "SUCCESS", affected_count, "Upsert/update completed.")
         else:
-            log_etl_event(engine, table.name, "SKIP", 0, "No rows affected by upsert")
-
+            log_etl_event(engine, table.name, "SUCCESS", affected_count, "No new data.")
+        return affected_count
     except Exception as e:
         print(f"[ERROR] Failed to upsert {table.name}: {e}")
         log_etl_event(engine, table.name, "FAILURE", 0, str(e))
+        return 0
