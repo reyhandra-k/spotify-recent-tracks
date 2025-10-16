@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, MetaData, Table
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 def create_engine_from_env():
-    load_dotenv()
+    load_dotenv(override=False)
     engine = create_engine(os.environ.get("database_url"), connect_args={"sslmode": "require"})
     return engine
 
