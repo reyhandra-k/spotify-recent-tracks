@@ -18,7 +18,6 @@ from etl_script import (
 # logging setup
 os.makedirs("logs", exist_ok=True)
 logging.basicConfig(
-    filename=f'logs/spotify_etl_{datetime.now(timezone.utc).strftime("%Y%m%d %H%M")}.log',
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
 )
@@ -57,13 +56,17 @@ except Exception as e:
     raise
 
 # last fetch time
+buffer_minutes = 30  
+
 try:
     last_fetch_dt = pd.read_sql("SELECT MAX(played_at) as last FROM plays", engine)['last'][0]
+    
     if pd.isnull(last_fetch_dt):
         last_fetch_dt = datetime.now(timezone.utc) - timedelta(hours=72)
     else:
-        last_fetch_dt = pd.to_datetime(last_fetch_dt, utc=True)
-    logging.info(f"Last fetch timestamp: {last_fetch_dt}")
+        last_fetch_dt = pd.to_datetime(last_fetch_dt, utc=True) - timedelta(minutes=buffer_minutes)
+    logging.info(f"Last fetch timestamp (with buffer): {last_fetch_dt}")
+
 except Exception as e:
     last_fetch_dt = datetime.now(timezone.utc) - timedelta(hours=72)
     logging.warning(f"Could not fetch last fetch time from DB, using fallback: {e}")

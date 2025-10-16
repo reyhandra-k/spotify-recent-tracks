@@ -1,0 +1,6 @@
+pandas
+python-dotenv
+spotipy
+SQLAlchemy
+psycopg2-binary
+pytz
