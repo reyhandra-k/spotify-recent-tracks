@@ -117,8 +117,10 @@ def load_to_db(tables, engine, artists_df, albums_df, tracks_df, plays_df):
         bulk_upsert_dataframe(albums_df, tables['albums'], engine, conflict_cols=['album_id'])
         bulk_upsert_dataframe_update(tracks_df, tables['tracks'], engine, conflict_cols=['track_id'],
                                      update_cols=['track_name', 'popularity'])
-        bulk_upsert_dataframe(plays_df, tables['plays'], engine, conflict_cols=['played_at'])
+        inserted_plays = bulk_upsert_dataframe(plays_df, tables['plays'], engine, conflict_cols=['played_at'])
         logging.info("Data successfully loaded to database.")
+        return inserted_plays
+
     except Exception as e:
         logging.error(f"Error loading data to database: {e}")
         raise
@@ -152,10 +154,15 @@ def main():
             return
 
         artists_df, albums_df, tracks_df, plays_df = transform_tracks(items, pd.to_datetime(after_ts, unit='ms', utc=True))
-        load_to_db(tables, engine, artists_df, albums_df, tracks_df, plays_df)
+        inserted_count = load_to_db(tables, engine, artists_df, albums_df, tracks_df, plays_df)
 
-        log_etl_event(engine, "SUCCESS", "ALL", 0, "ETL process successfully completed.")
-        logging.info("=== Spotify ETL process completed successfully ===")
+        if inserted_count > 0:
+            log_etl_event(engine, "ALL", "SUCCESS", inserted_count, "ETL process completed successfully.")
+            logging.info("=== Spotify ETL process completed successfully ===")
+        else:
+            log_etl_event(engine, "ALL", "SUCCESS", 0, "No new recently played tracks found.")
+            logging.info("No new tracks found. Exiting ETL process.")
+
 
     except Exception as e:
         logging.error(f"ETL process failed: {e}")

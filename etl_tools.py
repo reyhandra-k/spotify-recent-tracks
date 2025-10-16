@@ -40,28 +40,23 @@ def bulk_upsert_dataframe(df, table, engine, conflict_cols):
     if df.empty:
         print(f"[SKIP] No new rows for {table.name}")
         log_etl_event(engine, table.name, "SKIP", 0, "No new rows")
-        return
+        return 0
+
     records = df.to_dict(orient="records")
     insert_stmt = pg_insert(table).values(records)
     upsert_stmt = insert_stmt.on_conflict_do_nothing(index_elements=conflict_cols)
 
     try:
         with engine.begin() as conn:
-            # Count rows before
-            before_count = conn.execute(table.count()).scalar()
-            conn.execute(upsert_stmt)
-            after_count = conn.execute(table.count()).scalar()
-            inserted_count = after_count - before_count
-
+            result = conn.execute(upsert_stmt)
+        inserted_count = result.rowcount if result.rowcount is not None else len(records)
         print(f"[INSERTED] {inserted_count} rows into {table.name}")
-        if inserted_count > 0:
-            log_etl_event(engine, table.name, "SUCCESS", inserted_count, "Insert completed")
-        else:
-            log_etl_event(engine, table.name, "SKIP", 0, "No new rows inserted due to conflicts")
-
+        log_etl_event(engine, table.name, "SUCCESS", inserted_count, "Insert completed")
+        return inserted_count
     except Exception as e:
         print(f"[ERROR] Failed to insert into {table.name}: {e}")
         log_etl_event(engine, table.name, "FAILURE", 0, str(e))
+        return 0
 
 
 def bulk_upsert_dataframe_update(df, table, engine, conflict_cols, update_cols):
