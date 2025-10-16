@@ -6,8 +6,8 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 def create_engine_from_env():
     load_dotenv()
-    db_url = os.environ.get("database_url")
-    return create_engine(db_url)
+    engine = create_engine(os.environ.get("database_url"), connect_args={"sslmode": "require"})
+    return engine
 
 def reflect_tables(engine, table_names):
     metadata = MetaData()

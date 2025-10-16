@@ -1,5 +1,0 @@
-dotenv
-requests
-pandas
-sqlalchemy
-psycopg2
