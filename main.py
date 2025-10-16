@@ -29,22 +29,28 @@ load_dotenv(override=False)
 client_id =  os.environ.get("client_id")
 client_secret =  os.environ.get("client_secret")
 redirect_uri = os.environ.get("redirect_uri")
+refresh_token = os.environ.get("refresh_token")
 scopes = "user-read-recently-played"
 
 try:
-    sp = spotipy.Spotify(
-        auth_manager=SpotifyOAuth(
-            client_id=client_id,
-            client_secret=client_secret,
-            redirect_uri=redirect_uri,
-            scope=scopes,
-        ),
-        requests_timeout=15
+    auth_manager = SpotifyOAuth(
+        client_id=client_id,
+        client_secret=client_secret,
+        redirect_uri=redirect_uri,
+        scope=scopes,
+        open_browser=False 
     )
+
+    if refresh_token:
+        logging.info("Using pre-configured refresh token (headless mode).")
+        auth_manager.cache_handler.cache = {"refresh_token": refresh_token}
+
+    sp = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=15)
     logging.info("Spotify authentication successful.")
+
 except Exception as e:
     logging.error(f"Spotify authentication failed: {e}")
-    raise
+    raise SystemExit(1)
 
 # connect to db
 try:

@@ -4,3 +4,4 @@ pgadmin/
 postgres/
 logs/
 api-test.ipynb
+__pycache__/

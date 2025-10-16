@@ -27,4 +27,6 @@ jobs:
           client_secret: ${{ secrets.CLIENT_SECRET }}
           redirect_uri: ${{ secrets.REDIRECT_URI }}
           database_url: ${{ secrets.DATABASE_URL }}
+          refresh_token: ${{ secrets.REFRESH_TOKEN }}
+          PYTHONUNBUFFERED: 1
         run: python main.py
