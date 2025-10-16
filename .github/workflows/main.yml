@@ -1,4 +1,4 @@
-name: Run Spotify ETL every hour
+name: Spotify Tracks  to Neon DB ETL
 
 on:
   schedule:
