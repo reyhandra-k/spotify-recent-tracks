@@ -38,14 +38,19 @@ try:
         client_secret=client_secret,
         redirect_uri=redirect_uri,
         scope=scopes,
-        open_browser=False 
+        open_browser=False,
+        cache_handler=None  # disable .cache file since we’re in CI
     )
 
     if refresh_token:
         logging.info("Using pre-configured refresh token (headless mode).")
-        auth_manager.cache_handler.cache = {"refresh_token": refresh_token}
+        # Use refresh token to obtain a new access token
+        token_info = auth_manager.refresh_access_token(refresh_token)
+        sp = spotipy.Spotify(auth=token_info["access_token"], requests_timeout=15)
+    else:
+        # fallback to interactive auth (local dev)
+        sp = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=15)
 
-    sp = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=15)
     logging.info("Spotify authentication successful.")
 
 except Exception as e:
