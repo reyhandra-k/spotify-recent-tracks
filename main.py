@@ -5,6 +5,7 @@ import pandas as pd
 from datetime import datetime, timedelta, timezone
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
+from dateutil import parser
 from etl_tools import (
     create_engine_from_env,
     reflect_tables,
@@ -92,7 +93,7 @@ def transform_tracks(items, last_fetch_dt):
             for item in items
         ])
 
-        df['played_at'] = pd.to_datetime(df['played_at'], utc=True)
+        df['played_at'] = df['played_at'].apply(lambda x: parser.isoparse(x).astimezone(timezone.utc))
         df['album_release_date'] = pd.to_datetime(df['album_release_date'], errors='coerce')
         df = df[df['played_at'] > last_fetch_dt]
 
