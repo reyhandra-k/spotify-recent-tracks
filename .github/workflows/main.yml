@@ -30,3 +30,9 @@ jobs:
           refresh_token: ${{ secrets.REFRESH_TOKEN }}
           PYTHONUNBUFFERED: 1
         run: python main.py
+
+      - name: Run Analytics ETL
+        env:
+          database_url: ${{ secrets.DATABASE_URL }}
+          PYTHONUNBUFFERED: 1
+        run: python analytics/main.py
