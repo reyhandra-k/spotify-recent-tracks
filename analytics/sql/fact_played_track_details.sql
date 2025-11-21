@@ -4,12 +4,15 @@ CREATE TABLE analytics.fact_played_track_details AS
 with jkt_timezone as (
 SELECT
 p.played_at + interval '7 hours' as played_at,
+t.track_id,
 t.track_name,
 t.duration_ms,
 t.popularity,
+alb.album_id,
 alb.album_name,
 alb.album_type,
 alb.album_release_date,
+art.artist_id,
 art.artist_name
 from plays p
 left join tracks t

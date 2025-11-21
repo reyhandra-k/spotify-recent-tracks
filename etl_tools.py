@@ -90,3 +90,18 @@ def bulk_upsert_dataframe_update(df, table, engine, conflict_cols, update_cols):
         print(f"[ERROR] Failed to upsert {table.name}: {e}")
         log_etl_event(engine, table.name, "FAILURE", 0, str(e))
         return 0
+    
+def load_fact_played_tracks(engine):
+    sqlquery = """
+    SELECT *
+    FROM analytics.fact_played_track_details
+    ORDER BY played_at DESC
+    """
+    try:
+        with engine.begin() as conn:
+            df = pd.read_sql(sqlquery, conn)
+        return df
+
+    except Exception as e:
+        print(f"[ERROR] {e}")
+        return 0
