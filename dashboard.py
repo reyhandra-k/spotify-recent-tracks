@@ -71,16 +71,17 @@ top_5_artist_chart_label = (
 )
 st.altair_chart(top_5_artist_chart+top_5_artist_chart_label)
 
-"Peak listening times"
-day_type = st.multiselect(label="Choose daytype", options=["Weekday","Weekend"], default="Weekday")
-hourly_pivot = datedf[['played_hour','played_at']][datedf['played_daytype'].isin(day_type)].groupby(['played_hour'])['played_at'].count().reset_index()
+
+"Listening Activity Heatmap"
+hourly_pivot = datedf[['played_dayofweek','played_hour','played_at']].groupby(['played_dayofweek','played_hour'])['played_at'].count().reset_index()
 hourly_pivot = hourly_pivot.rename(columns={"played_at":"plays"})
 hourly_trend_chart = (
     alt.Chart(hourly_pivot)
-    .mark_bar()
-    .encode(x=alt.X('played_hour:N').sort('x'), y='plays')
+    .mark_rect()
+    .encode(x=alt.X('played_dayofweek:N').sort('x'), y=alt.Y('played_hour:N').sort('y'), color='plays')
 )
 st.altair_chart(hourly_trend_chart)
+
 
 "All Data"
 st.dataframe(datedf)
