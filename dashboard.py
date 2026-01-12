@@ -16,28 +16,79 @@ df = load_fact_played_tracks(engine)
 # df['played_at'] = pd.to_datetime(df['played_at'])
 
 # Dashboard
-dt = st.date_input("Select date",(datetime.date.today().replace(day=1),datetime.date.today()), min_value = min(df['played_at'].dt.date), max_value = datetime.date.today())
+st.set_page_config(layout="wide")
+
+## Date Filter
+dt = st.date_input("Please select the period you would like to inspect",(datetime.date.today().replace(day=1),datetime.date.today()), min_value = min(df['played_at'].dt.date), max_value = datetime.date.today())
 if len(dt) != 2:
     st.stop()
 datedf = df[(df['played_at'].dt.date >= dt[0]) & (df['played_at'].dt.date <= dt[1])]
+if datedf.empty:
+    st.warning("You have no listening activity during this period.")
+    st.stop()
+prevdatestart = ( dt[0] - (dt[1]-dt[0]) - pd.DateOffset(1) ).date()
+prevdf = df[(df['played_at'].dt.date >= prevdatestart) & (df['played_at'].dt.date < dt[0])]
 
-"Listening time" 
-minutes_listened = round(datedf['duration_ms'].sum() / 60000)
-st.write(minutes_listened)
 
-"Number of tracks"
-number_of_tracks = datedf['track_id'].nunique()
-st.write(number_of_tracks)
+## Summary Row
+col1, col2, col3 = st.columns(3)
+with col1:
+    minutes_listened = round(datedf['duration_ms'].sum() / 60000)
+    prev_minutes_listened = round(prevdf['duration_ms'].sum() / 60000)
+    try:
+        delta_minutes = (minutes_listened - prev_minutes_listened) / prev_minutes_listened
+    except:
+        delta_minutes = 0
+    st.metric(label = "Minutes Listened", value = minutes_listened, delta=f"{delta_minutes:.1%}", border = True)
+    st.info("Thats 18% of your life!")
 
-"Number of artists"
-number_of_artist = datedf['artist_id'].nunique()
-st.write(number_of_artist)
+with col2:
+    number_of_tracks = datedf['track_id'].nunique()
+    prev_number_of_tracks = prevdf['track_id'].nunique()
+    try:
+        delta_tracks = (number_of_tracks - prev_number_of_tracks) / prev_number_of_tracks
+    except:
+        delta_tracks = 0
+    st.metric(label = "Tracks Listened", value = number_of_tracks, delta=f"{delta_tracks:.1%}", border = True)
+    st.info("3 of those being new songs")
 
-"Top Song"
+with col3:
+    number_of_artist = datedf['artist_id'].nunique()
+    prev_number_of_artist = prevdf['artist_id'].nunique()
+    try:
+        delta_artists = (number_of_artist - prev_number_of_artist) / prev_number_of_artist
+    except:
+        delta_artists = 0
+    st.metric(label = "Artists Listened", value = number_of_artist, delta=f"{delta_artists:.1%}", border = True)
+    st.info("Blabla")
+st.divider()
+
+## Top Track
+### Text Config
+st.markdown("""
+<style>
+.big-font {
+    font-size: 52px !important;
+    font-weight: bold;
+}
+.med-font {
+    font-size: 26px !important;
+    font-weight: bold;
+}
+</style>""", unsafe_allow_html=True)
+
+### Top Track Extract 
 song_pivot = datedf[['track_id','track_name','played_at']].groupby(['track_id','track_name'])['played_at'].count().reset_index()
 song_pivot = song_pivot.rename(columns={"played_at":"plays"})
 top_song = song_pivot[['track_name','plays']][song_pivot['plays'] == song_pivot['plays'].max()]
-st.write(top_song)
+top_song_name = top_song.iat[0,0]
+top_song_freq = top_song.iat[0,1]
+st.markdown(f'''<p><span class="big-font">{top_song_name}</span> rises to the top as your 
+            <span style="color: yellow">most listened to track </span>
+            with a staggering<span class="med-font"> {top_song_freq} plays</span></p>''', unsafe_allow_html=True)
+
+
+
 
 "Top 5 Songs"
 top_5_song = song_pivot.sort_values(by=['plays'],ascending=False).head()
@@ -85,3 +136,8 @@ st.altair_chart(hourly_trend_chart)
 
 "All Data"
 st.dataframe(datedf)
+
+
+"Prev"
+st.write(prevdatestart)
+st.dataframe(prevdf)
